@@ -51,21 +51,6 @@ def timestamp_to_date(timestamp):
 def setup(bot):
     pass
 
-def woeid_search(query):
-    """
-    Find the first Where On Earth ID for the given query. Result is the etree
-    node for the result, so that location data can still be retrieved. Returns
-    None if there is no result, or the woeid field is empty.
-    """
-    # query = urllib.urlencode({'q': 'select * from geo.placefinder where text="%s"' % query})
-    # body = web.get('http://query.yahooapis.com/v1/public/yql?' + query)
-    payload = {'q': 'select * from geo.places(1) where text="%s"' % query, 'format': 'json'}
-    body = requests.get('http://query.yahooapis.com/v1/public/yql?', params=payload)
-    parsed = body.json()
-    first_result = parsed['query']['results']
-    if first_result is None or len(first_result) == 0:
-        return None
-    return first_result
 
 def geocoder_search(bot, location_name):
     geocoded = geocoder.bing(location_name, key=bot.config.apikeys.bing_maps_key)
@@ -177,61 +162,6 @@ def get_wind(parsed):
     return description + ' ' + str(speed) + 'kt (' + degrees + ')'
 
 
-# @commands('weather', 'wea')
-# @example('.weather London')
-def weather(bot, trigger):
-    """.weather location - Show the weather at the given location."""
-    location = trigger.group(2)
-    try:
-        location = trigger.group(2).lower()
-    except:
-        location = ''
-    woeid = ''
-    nick = trigger.nick.lower()
-    if not location:
-        woeid = bot.db.get_nick_value(nick, 'woeid')
-        latitude = bot.db.get_nick_value(nick, 'latitude')
-        longitude = bot.db.get_nick_value(nick, 'longitude')
-        location = bot.db.get_nick_value(nick, 'location')
-        if not woeid:
-            return bot.msg(trigger.sender, "I don't know where you live. " +
-                           'Give me a location, like .weather London, or tell me where you live by saying .setlocation London, for example.')
-    else:
-        location = location.strip()
-        if bot.db.get_nick_value(location, 'woeid'):
-            nick = location
-            woeid = bot.db.get_nick_value(nick, 'woeid')
-            latitude = bot.db.get_nick_value(nick, 'latitude')
-            longitude = bot.db.get_nick_value(nick, 'longitude')
-            location = bot.db.get_nick_value(nick, 'location')
-            if not woeid:
-                return bot.msg(trigger.sender, "I don't know who this is or they don't have their location set.")
-        else: 
-            # first_result = woeid_search(location)
-            result = geocoder_search(bot, location)
-            if result["status"] is 'OK':
-                woeid = result['address']
-                latitude = result['lat']
-                longitude = result['lng']
-                location = result['address']
-
-    if not woeid:
-        return bot.reply("I don't know where that is.")
-    wea_text = weabase(bot, latitude, longitude, location)
-    bot.say(wea_text)
-
-    # query = web.urlencode({'w': woeid, 'u': 'c'})
-    # url = 'http://weather.yahooapis.com/forecastrss?' + query
-    # parsed = feedparser.parse(url)
-    # location = parsed['feed']['title']
-
-    # cover = get_cover(parsed)
-    # temp = get_temp(parsed)
-    # pressure = get_pressure(parsed)
-    # wind = get_wind(parsed)
-    # bot.say(u'%s: %s, %s, %s, %s' % (location, cover, temp, pressure, wind))
-
-
 # @commands('wf', 'forecast')
 # @example('.wf London')
 def weather_forecast(bot, trigger):
@@ -263,7 +193,7 @@ def weather_forecast(bot, trigger):
             location = bot.db.get_nick_value(nick, 'location')
             if not woeid:
                 return bot.msg(trigger.sender, "I don't know who this is or they don't have their location set.")
-        else: 
+        else:
             # first_result = woeid_search(location)
             # if first_result is not None:
             #     woeid = first_result['place']['woeid']
@@ -315,7 +245,7 @@ def weather_combined(bot, trigger):
             location = bot.db.get_nick_value(nick, 'location')
             if not woeid:
                 return bot.msg(trigger.sender, "I don't know who this is or they don't have their location set.")
-        else: 
+        else:
             # first_result = woeid_search(location)
             # if first_result is not None:
             #     woeid = first_result['place']['woeid']
@@ -367,7 +297,7 @@ def weather_five_days(bot, trigger):
             location = bot.db.get_nick_value(nick, 'location')
             if not woeid:
                 return bot.msg(trigger.sender, "I don't know who this is or they don't have their location set.")
-        else: 
+        else:
             # first_result = woeid_search(location)
             # if first_result is not None:
             #     woeid = first_result['place']['woeid']
@@ -489,31 +419,31 @@ def w5base(bot, latitude, longitude, location, units='si'):
         deg = degf
     else:
         deg = degc
-    return """{location} - Tomorrow: {min_temp} to {max_temp}{deg} {summary}, 
-{two_days}: {two_days_min} to {two_days_max}{deg} {two_days_summary}, 
-{three_days}: {three_days_min} to {three_days_max}{deg} {three_days_summary}, 
-{four_days}: {four_days_min} to {four_days_max}{deg} {four_days_summary}, 
+    return """{location} - Tomorrow: {min_temp} to {max_temp}{deg} {summary},
+{two_days}: {two_days_min} to {two_days_max}{deg} {two_days_summary},
+{three_days}: {three_days_min} to {three_days_max}{deg} {three_days_summary},
+{four_days}: {four_days_min} to {four_days_max}{deg} {four_days_summary},
 {five_days}: {five_days_min} to {five_days_max}{deg} {five_days_summary}""" \
-              .format(location=location, deg=deg, 
-                      min_temp=str(int(round(wea_forecast[1]["temperatureMin"]))), 
-                      max_temp=str(int(round(wea_forecast[1]["temperatureMax"]))), 
-                      summary=wea_forecast[1]["summary"], 
-                      two_days=timestamp_to_date(wea_forecast[2]['time']), 
-                      two_days_min=str(int(round(wea_forecast[2]["temperatureMin"]))), 
-                      two_days_max=str(int(round(wea_forecast[2]["temperatureMax"]))), 
-                      two_days_summary=wea_forecast[2]["summary"], 
-                      three_days=timestamp_to_date(wea_forecast[3]['time']), 
-                      three_days_min=str(int(round(wea_forecast[3]["temperatureMin"]))), 
+              .format(location=location, deg=deg,
+                      min_temp=str(int(round(wea_forecast[1]["temperatureMin"]))),
+                      max_temp=str(int(round(wea_forecast[1]["temperatureMax"]))),
+                      summary=wea_forecast[1]["summary"],
+                      two_days=timestamp_to_date(wea_forecast[2]['time']),
+                      two_days_min=str(int(round(wea_forecast[2]["temperatureMin"]))),
+                      two_days_max=str(int(round(wea_forecast[2]["temperatureMax"]))),
+                      two_days_summary=wea_forecast[2]["summary"],
+                      three_days=timestamp_to_date(wea_forecast[3]['time']),
+                      three_days_min=str(int(round(wea_forecast[3]["temperatureMin"]))),
                       three_days_max=str(int(round(wea_forecast[3]["temperatureMax"]))),
-                      three_days_summary=wea_forecast[3]["summary"],  
+                      three_days_summary=wea_forecast[3]["summary"],
                       four_days=timestamp_to_date(wea_forecast[4]['time']),
-                      four_days_min=str(int(round(wea_forecast[4]["temperatureMin"]))), 
+                      four_days_min=str(int(round(wea_forecast[4]["temperatureMin"]))),
                       four_days_max=str(int(round(wea_forecast[4]["temperatureMax"]))),
-                      four_days_summary=wea_forecast[4]["summary"],  
-                      five_days=timestamp_to_date(wea_forecast[5]['time']), 
-                      five_days_min=str(int(round(wea_forecast[5]["temperatureMin"]))), 
+                      four_days_summary=wea_forecast[4]["summary"],
+                      five_days=timestamp_to_date(wea_forecast[5]['time']),
+                      five_days_min=str(int(round(wea_forecast[5]["temperatureMin"]))),
                       five_days_max=str(int(round(wea_forecast[5]["temperatureMax"]))),
-                      five_days_summary=wea_forecast[5]["summary"], 
+                      five_days_summary=wea_forecast[5]["summary"],
                       )
 
 def wcbase(bot, latitude, longitude, location, units='si'):
@@ -542,18 +472,6 @@ def wcbase(bot, latitude, longitude, location, units='si'):
                                                                                                                                                                                                         week_summary=json_forecast['daily']['summary'])
     return wea_text + " " + wf_text
 
-def old_wea(woeid):
-    query = web.urlencode({'w': woeid, 'u': 'c'})
-    url = 'http://weather.yahooapis.com/forecastrss?' + query
-    parsed = feedparser.parse(url)
-    location = parsed['feed']['title']
-
-    cover = get_cover(parsed)
-    temp = get_temp(parsed)
-    pressure = get_pressure(parsed)
-    wind = get_wind(parsed)
-    bot.say('%s: %s, %s, %s, %s' % (location, cover, temp, pressure, wind))
-
 def c_to_f(temp):
     return round(temp * 1.8 + 32, 2)
 
@@ -565,8 +483,3 @@ def get_timezone(bot, lat, lon):
     timezonedb_url = "http://api.geonames.org/timezoneJSON?lat={}&lng={}&username={}".format(lat, lon, bot.config.apikeys.geonames_username)
     tz_json = requests.get(timezonedb_url).json()
     return tz_json['timezoneId']
-
-@commands('weac', 'weaf')
-def weather_deprecated_message(bot, trigger):
-	bot.say("weac and weaf are deprecated. Please use .wea instead")
-	weather(bot, trigger)
